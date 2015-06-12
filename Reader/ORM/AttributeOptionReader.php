@@ -2,8 +2,10 @@
 
 namespace DnD\Bundle\MagentoConnectorBundle\Reader\ORM;
 
-use Doctrine\ORM\EntityManager;
 use Pim\Bundle\BaseConnectorBundle\Reader\Doctrine\Reader;
+use Pim\Bundle\CatalogBundle\Entity\Repository\AttributeOptionRepository;
+use Pim\Bundle\CatalogBundle\Entity\Repository\AttributeRepository;
+use Pim\Bundle\UserBundle\Context\UserContext;
 
 /**
  * ORM Reader for simple entities without query join
@@ -14,24 +16,51 @@ use Pim\Bundle\BaseConnectorBundle\Reader\Doctrine\Reader;
  */
 class AttributeOptionReader extends Reader
 {
-    /**
-     * @var EntityManager
-     */
-    protected $em;
+    /** @var AttributeOptionRepository */
+    protected $attributeOptionRepository;
+
+    /** @var AttributeRepository */
+    protected $attributeRepository;
+
+    /** @var UserContext */
+    protected $userContext;
+
+    /** @var array */
+    protected $excludedAttributes;
 
     /**
-     * @var string
+     * @param AttributeOptionRepository $attributeOptionRepository
+     * @param AttributeRepository $attributeRepository
+     * @param UserContext $userContext
      */
-    protected $className;
-
-    /**
-     * @param EntityManager $em        The entity manager
-     * @param string        $className The entity class name used
-     */
-    public function __construct(EntityManager $em, $className)
+    public function __construct(AttributeOptionRepository $attributeOptionRepository, AttributeRepository $attributeRepository, UserContext $userContext)
     {
-        $this->em        = $em;
-        $this->className = $className;
+        $this->attributeOptionRepository = $attributeOptionRepository;
+        $this->attributeRepository = $attributeRepository;
+        $this->userContext = $userContext;
+    }
+
+    /**
+     * Get Excluded attributes
+     *
+     * @return array
+     */
+    public function getExcludedAttributes()
+    {
+        return $this->excludedAttributes;
+    }
+
+    /**
+     * Set Excluded attributes
+     *
+     * @param array $excludedAttributes
+     * @return AttributeOptionReader
+     */
+    public function setExcludedAttributes($excludedAttributes)
+    {
+        $this->excludedAttributes = $excludedAttributes;
+
+        return $this;
     }
 
     /**
@@ -40,13 +69,50 @@ class AttributeOptionReader extends Reader
     public function getQuery()
     {
         if (!$this->query) {
-            $this->query = $this->em
-                ->getRepository($this->className)
-                ->createQueryBuilder('a')
-                ->orderBy('a.sortOrder')
-                ->getQuery();
+            $qb = $this->attributeOptionRepository->createQueryBuilder('o');
+
+            if ($this->getExcludedAttributes()) {
+                $qb->join('o.attribute', 'a')
+                    ->where($qb->expr()->notIn('a.id', $this->getExcludedAttributes()));
+            }
+
+            $qb->orderBy('o.sortOrder');
+
+            $this->query = $qb->getQuery();
         }
 
         return $this->query;
+    }
+
+    protected function getAttributeOptions()
+    {
+        $options = [];
+
+        /** @var \Pim\Bundle\CatalogBundle\Entity\Attribute $attribute */
+        foreach ($this->attributeRepository->findAll() as $attribute) {
+            $options[$attribute->getId()] = $attribute->setLocale($this->userContext->getCurrentLocaleCode())->getLabel();
+        }
+
+        return $options;
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function getConfigurationFields()
+    {
+        return [
+            'excludedAttributes' => [
+                'type' => 'choice',
+                'options' => [
+                    'choices' => $this->getAttributeOptions(),
+                    'required' => false,
+                    'multiple' => true,
+                    'select2' => true,
+                    'label' => 'dnd_magento_connector.export.excludedAttributes.label',
+                    'help' => 'dnd_magento_connector.export.excludedAttributes.help'
+                ]
+            ],
+        ];
     }
 }
