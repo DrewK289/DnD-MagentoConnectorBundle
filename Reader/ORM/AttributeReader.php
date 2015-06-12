@@ -2,8 +2,8 @@
 
 namespace DnD\Bundle\MagentoConnectorBundle\Reader\ORM;
 
-use Doctrine\ORM\EntityManager;
 use Pim\Bundle\BaseConnectorBundle\Reader\Doctrine\Reader;
+use Pim\Bundle\CatalogBundle\Entity\Repository\AttributeRepository;
 
 /**
  *
@@ -13,15 +13,7 @@ use Pim\Bundle\BaseConnectorBundle\Reader\Doctrine\Reader;
  */
 class AttributeReader extends Reader
 {
-    /**
-     * @var EntityManager
-     */
-    protected $em;
 
-    /**
-     * @var string
-     */
-    protected $className;
 
     /**
      * @var string
@@ -29,13 +21,13 @@ class AttributeReader extends Reader
     protected $excludedAttributes;
 
     /**
-     * @param EntityManager $em        The entity manager
-     * @param string        $className The entity class name used
+     * @param AttributeRepository $attributeRepository
+     * @param UserContext $userContext
      */
-    public function __construct(EntityManager $em, $className)
+    public function __construct(AttributeRepository $attributeRepository, UserContext $userContext)
     {
-        $this->em        = $em;
-        $this->className = $className;
+        $this->attributeRepository = $attributeRepository;
+        $this->userContext = $userContext;
     }
 
     /**
@@ -68,9 +60,7 @@ class AttributeReader extends Reader
     public function getQuery()
     {
         if (!$this->query) {
-            $qb = $this->em
-                ->getRepository($this->className)
-                ->createQueryBuilder('a');
+            $qb = $this->attributeRepository->createQueryBuilder('a');
 
             if($this->getExcludedAttributes() != ''){
                 $attributes = explode(',', $this->getExcludedAttributes());
