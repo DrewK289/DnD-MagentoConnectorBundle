@@ -4,6 +4,7 @@ namespace DnD\Bundle\MagentoConnectorBundle\Reader\ORM;
 
 use Pim\Bundle\BaseConnectorBundle\Reader\Doctrine\Reader;
 use Pim\Bundle\CatalogBundle\Entity\Repository\AttributeRepository;
+use Pim\Bundle\UserBundle\Context\UserContext;
 
 /**
  *
@@ -14,11 +15,15 @@ use Pim\Bundle\CatalogBundle\Entity\Repository\AttributeRepository;
 class AttributeReader extends Reader
 {
 
+    /** @var AttributeRepository */
+    protected $attributeRepository;
 
     /**
      * @var string
      */
     protected $excludedAttributes;
+    /** @var UserContext */
+    protected $userContext;
 
     /**
      * @param AttributeRepository $attributeRepository
