@@ -125,19 +125,40 @@ class CategoryReader extends Reader
         return $children;
     }
 
+    protected function getRootCategoryChoices()
+    {
+        $options = [];
+
+        $qb = $this->categoryRepository->createQueryBuilder('c');
+        $qb->select()->where($qb->expr()->eq('c.id', 'c.root'));
+
+        /** @var \Pim\Bundle\CatalogBundle\Entity\Category[] $categories */
+        $categories = $qb->getQuery()->getResult();
+
+        foreach ($categories as $category) {
+            $options[$category->getId()] = $category->setLocale($this->userContext->getCurrentLocaleCode())->getLabel();
+        }
+
+        return $options;
+    }
+
     /**
      * {@inheritdoc}
      */
     public function getConfigurationFields()
     {
-        return array(
-            'excludedCategories' => array(
-                'options' => array(
+        return [
+            'excludedCategories' => [
+                'type' => 'choice',
+                'options' => [
+                    'choices' => $this->getRootCategoryChoices(),
                     'required' => false,
-                    'label'    => 'dnd_magento_connector.export.excludedCategories.label',
-                    'help'     => 'dnd_magento_connector.export.excludedCategories.help'
-                )
-            )
-        );
+                    'multiple' => true,
+                    'select2' => true,
+                    'label' => 'dnd_magento_connector.export.excludedCategories.label',
+                    'help' => 'dnd_magento_connector.export.excludedCategories.help'
+                ]
+            ],
+        ];
     }
 }
