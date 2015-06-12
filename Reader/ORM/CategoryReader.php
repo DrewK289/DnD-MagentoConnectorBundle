@@ -2,8 +2,8 @@
 
 namespace DnD\Bundle\MagentoConnectorBundle\Reader\ORM;
 
-use Entity\Repository\CategoryRepository;
 use Pim\Bundle\BaseConnectorBundle\Reader\Doctrine\Reader;
+use Pim\Bundle\CatalogBundle\Entity\Repository\CategoryRepository;
 use Pim\Bundle\UserBundle\Context\UserContext;
 
 /**
