@@ -5,14 +5,14 @@ Magento Connector for Akeneo PIM.
 
 This connector allows you exporting data from the PIM to another server by a SFTP connection (FTP export is not already effective, see [roadmap](#roadmap)).
 
-You will need the following informations:
+You will need the following information:
 * Host
 * Port
 * Username
 * Password
 
 ## Magento side: PIMGento extension is required
-The part which read the files in Magento system works with [PIMGento](https://github.com/Agence-DnD/PimGento) (a dedicateed Magento extension for Akeneo), not present on this repository.
+The part which read the files in Magento system works with [PIMGento](https://github.com/Agence-DnD/PimGento) (a dedicated Magento extension for Akeneo), not present on this repository.
 
 ## Requirements
 
@@ -64,7 +64,7 @@ $bundles[] = new DnD\Bundle\MagentoConnectorBundle\DnDMagentoConnectorBundle();
 
 Go to _Spread_ > _Export_ and then create your _DnDMagentoConnectorBundle_ export type.
 
-It is recommend to create exports with an explicit code, below an example of what you can enter:
+It is recommended to create exports with an explicit code, below is an example of what you can enter:
 ```
 companyname_environment_categories_export
 companyname_environment_family_export
@@ -73,17 +73,18 @@ companyname_environment_attribute_option_export
 companyname_environment_product_export
 ```
 
-Above, companyname match with the name of your company and environment is the environment on which you make your exports (devel, preprod, prod).
+Above, companyname would match the name of your company and environment is the environment on which you make your exports (devel, preprod, prod).
 
 ### Products export
 
 * Channel choice
-* Last products modification date (if empty and the profil never been executed, all products are exported otherwise it export all products since the last profil execution datetime)
-* Export Product ID (number visible in the current url "/spread/export/ID")
+* Last product modification date
+ * If empty and the profile has never been executed, all products are exported
+ * If empty and the profile has been executed before, all products that have been updated since the last profile execution date & time are exported
 * Products status (enable / disable)
-* Products completness (completes / incompletes)
+* Products completeness (complete / incomplete)
 * File path on Akeneo PIM server
-* Remote server host (public IP)
+* Remote server host (IP Address or Hostname)
 * Remote server port (22 for SFTP connection)
 * Remote server username
 * Remote server password
@@ -92,7 +93,7 @@ Above, companyname match with the name of your company and environment is the en
 * CSV file delimiter enclosure
 * CSV file with / without header
 * Remote server images file path (from the user root access)
-* Export images (yes / no), if you choose no, media columns will not be present in your CSV file and your images will not be transfered
+* Export images (yes / no), if you choose no, media columns will not be present in your CSV file and your images will not be transferred
 * Data to export (All data / All data without prices / Only prices)
 
 **Product export overview:**
@@ -115,7 +116,7 @@ Above, companyname match with the name of your company and environment is the en
 
 ## Cron Job
 
-To set up a cronjob which allow you to computerize exports (below an example for everyday at 4am):
+To set up a cronjob which allows you to automate exports (below an example for everyday at 4am):
 ```
 $ 0 4 * * * cd path/to/pim/; php app/console akeneo:batch:job companyname_environment_categories_export --env=prod
 $ 0 4 * * * cd path/to/pim/; php app/console akeneo:batch:job companyname_environment_family_export --env=prod
@@ -130,7 +131,6 @@ $ 0 4 * * * cd path/to/pim/; php app/console akeneo:batch:job companyname_enviro
 * Update password fields type (to hide their value)
 * Export enabled and disabled products (actually enabled or disabled)
 * Export complete and incomplete products (actually complete or incomplete)
-* Remove ID product export and get it dynamically
 
 ## About us
 
