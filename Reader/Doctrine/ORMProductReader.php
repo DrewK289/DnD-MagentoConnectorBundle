@@ -92,11 +92,6 @@ class ORMProductReader extends AbstractConfigurableStepElement implements Produc
     protected $exportFrom = "1970-01-01 01:00:00";
 
     /**
-     * @var string
-     */
-    protected $batchExportID = 1;
-
-    /**
      * @var boolean
      */
     protected $isEnabled = true;
@@ -126,30 +121,6 @@ class ORMProductReader extends AbstractConfigurableStepElement implements Produc
     public function setExportFrom($exportFrom)
     {
         $this->exportFrom = $exportFrom;
-
-        return $this;
-    }
-
-    /**
-     * get batchExportID
-     *
-     * @return string batchExportID
-     */
-    public function getBatchExportID()
-    {
-        return $this->batchExportID;
-    }
-
-    /**
-     * Set $batchExportID
-     *
-     * @param string batchExportID $batchExportID
-     *
-     * @return AbstractProcessor
-     */
-    public function setBatchExportID($batchExportID)
-    {
-        $this->batchExportID = $batchExportID;
 
         return $this;
     }
@@ -272,13 +243,6 @@ class ORMProductReader extends AbstractConfigurableStepElement implements Produc
                 'options' => array(
                     'help'    => 'dnd_magento_connector.export.exportFrom.help',
                     'label'   => 'dnd_magento_connector.export.exportFrom.label',
-                )
-            ),
-            'batchExportID' => array(
-                'required' => false,
-                'options' => array(
-                    'help'    => 'dnd_magento_connector.export.batchExportID.help',
-                    'label'   => 'dnd_magento_connector.export.batchExportID.label',
                 )
             ),
             'isEnabled' => array(
