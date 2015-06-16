@@ -2,7 +2,6 @@
 
 namespace DnD\Bundle\MagentoConnectorBundle\Reader\Doctrine;
 
-use Doctrine\ORM\QueryBuilder;
 use Pim\Bundle\CatalogBundle\Version;
 use Akeneo\Bundle\BatchBundle\Entity\StepExecution;
 use Akeneo\Bundle\BatchBundle\Item\AbstractConfigurableStepElement;
@@ -10,7 +9,6 @@ use Doctrine\ORM\EntityManager;
 use Pim\Bundle\BaseConnectorBundle\Reader\ProductReaderInterface;
 use Symfony\Component\Validator\Constraints as Assert;
 use Pim\Bundle\TransformBundle\Converter\MetricConverter;
-use Pim\Bundle\BaseConnectorBundle\Validator\Constraints\Channel as ChannelConstraint;
 use Pim\Bundle\CatalogBundle\Manager\ChannelManager;
 use Pim\Bundle\CatalogBundle\Manager\CompletenessManager;
 use Pim\Bundle\CatalogBundle\Repository\ProductRepositoryInterface;
