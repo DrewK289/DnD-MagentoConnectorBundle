@@ -2,8 +2,9 @@
 
 namespace DnD\Bundle\MagentoConnectorBundle\Reader\ORM;
 
-use Doctrine\ORM\EntityManager;
 use Pim\Bundle\BaseConnectorBundle\Reader\Doctrine\Reader;
+use Pim\Bundle\CatalogBundle\Entity\Repository\AttributeRepository;
+use Pim\Bundle\UserBundle\Context\UserContext;
 
 /**
  *
@@ -13,35 +14,29 @@ use Pim\Bundle\BaseConnectorBundle\Reader\Doctrine\Reader;
  */
 class AttributeReader extends Reader
 {
-    /**
-     * @var EntityManager
-     */
-    protected $em;
+    /** @var AttributeRepository */
+    protected $attributeRepository;
 
-    /**
-     * @var string
-     */
-    protected $className;
+    /** @var UserContext */
+    protected $userContext;
 
-    /**
-     * @var string
-     */
+    /** @var array */
     protected $excludedAttributes;
 
     /**
-     * @param EntityManager $em        The entity manager
-     * @param string        $className The entity class name used
+     * @param AttributeRepository $attributeRepository
+     * @param UserContext $userContext
      */
-    public function __construct(EntityManager $em, $className)
+    public function __construct(AttributeRepository $attributeRepository, UserContext $userContext)
     {
-        $this->em        = $em;
-        $this->className = $className;
+        $this->attributeRepository = $attributeRepository;
+        $this->userContext = $userContext;
     }
 
     /**
-     * get excludedAttributes
+     * Get Excluded attributes
      *
-     * @return string excludedAttributes
+     * @return array
      */
     public function getExcludedAttributes()
     {
@@ -49,11 +44,9 @@ class AttributeReader extends Reader
     }
 
     /**
-     * Set excludedAttributes
+     * Set Excluded attributes
      *
-     * @param string $excludedAttributes excludedAttributes
-     *
-     * @return AbstractProcessor
+     * @param array $excludedAttributes
      */
     public function setExcludedAttributes($excludedAttributes)
     {
@@ -68,38 +61,43 @@ class AttributeReader extends Reader
     public function getQuery()
     {
         if (!$this->query) {
-            $qb = $this->em
-                ->getRepository($this->className)
-                ->createQueryBuilder('a');
+            $qb = $this->attributeRepository->createQueryBuilder('a');
 
-            if($this->getExcludedAttributes() != ''){
-                $attributes = explode(',', $this->getExcludedAttributes());
-                $i = 0;
-                foreach($attributes as $attr){
-                    if($i == 0){
-                        $qb->where(
-                            $qb->expr()->orX(
-                                $qb->expr()->neq('a.code', ':code'.$i)
-                            )
-                        );
-                        $qb->setParameter('code'.$i, $attr);
-                    }else{
-                        $qb->andWhere(
-                            $qb->expr()->orX(
-                                $qb->expr()->neq('a.code', ':code'.$i)
-                            )
-                        );
-                        $qb->setParameter('code'.$i, $attr);
-                    }
-                    $i++;
-                }
-
+            if ($this->getExcludedAttributes()) {
+                $qb->where(
+                    $qb->expr()->orX(
+                        $qb->expr()->notIn('a.id', $this->getExcludedAttributes())
+                    )
+                );
             }
-
             $this->query = $qb->getQuery();
         }
-
         return $this->query;
+    }
+
+    public function setQuery($query)
+    {
+        if (!is_a($query, 'Doctrine\ORM\AbstractQuery', true) && !is_a($query, 'Doctrine\MongoDB\Query\Query', true)) {
+            throw new \InvalidArgumentException(
+                sprintf(
+                    '$query must be either a Doctrine\ORM\AbstractQuery or ' .
+                    'a Doctrine\ODM\MongoDB\Query\Query instance, got "%s"',
+                    is_object($query) ? get_class($query) : $query
+                )
+            );
+        }
+        $this->query = $query;
+    }
+
+    protected function getAttributeOptions()
+    {
+        $options = [];
+
+        foreach ($this->attributeRepository->findAll() as $attribute) {
+            $options[$attribute->getId()] = $attribute->setLocale($this->userContext->getCurrentLocaleCode())->getLabel();
+        }
+
+        return $options;
     }
 
     /**
@@ -107,14 +105,18 @@ class AttributeReader extends Reader
      */
     public function getConfigurationFields()
     {
-        return array(
-            'excludedAttributes' => array(
-                'options' => array(
+        return [
+            'excludedAttributes' => [
+                'type' => 'choice',
+                'options' => [
+                    'choices' => $this->getAttributeOptions(),
                     'required' => false,
+                    'multiple' => true,
+                    'select2' => true,
                     'label'    => 'dnd_magento_connector.export.excludedAttributes.label',
                     'help'     => 'dnd_magento_connector.export.excludedAttributes.help'
-                )
-            )
-        );
+                ]
+            ],
+        ];
     }
 }

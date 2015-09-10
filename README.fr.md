@@ -78,9 +78,9 @@ Ci-dessus, _companyname_ correspond au nom de votre société et environment à 
 ### Export des produits
 
 * Choix du canal
-* Choix de la dernière date de modification des produits (si cette dernière n'est pas entrée et que le profil n'a jamais été exécuté, tous les produits sont exportés sinon cela tous les produits modifiés depuis la dernière exécution du profil)
-* ID Export Produit (ce dernier correspond au chiffre visible dans l'url sur laquelle vous vous trouvez "/spread/export/ID")
-* Statut des produits (activés / désactivés)
+* Dernier produit date de modification
+ * Si vide et le profil n'a jamais été exécuté, tous les produits sont exportés
+ * Si vide et le profil a été exécutée avant, tous les produits qui ont été mises à jour depuis la dernière exécution du profil date et l'heure sont exportés
 * Complétude des produits (complets / incomplets)
 * Chemin du fichier enregistré sur le serveur du PIM
 * Hôte de votre serveur distant (IP publique)
@@ -130,4 +130,3 @@ $ 0 4 * * * cd path/to/pim/; php app/console akeneo:batch:job companyname_enviro
 * Modification du type des champs mot de passe (afin qu'ils ne soient pas affichés)
 * Modification de l'export des produits afin de pouvoir exporter les produits activés et désactivés
 * Modification de l'export des produits afin de pouvoir exporter les produits complets et non complets
-* Suppression du champ ID export produit afin qu'il soit récupéré dynamiquement

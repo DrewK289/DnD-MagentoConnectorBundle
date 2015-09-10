@@ -2,8 +2,9 @@
 
 namespace DnD\Bundle\MagentoConnectorBundle\Reader\ORM;
 
-use Doctrine\ORM\EntityRepository;
 use Pim\Bundle\BaseConnectorBundle\Reader\Doctrine\Reader;
+use Pim\Bundle\CatalogBundle\Entity\Repository\CategoryRepository;
+use Pim\Bundle\UserBundle\Context\UserContext;
 
 /**
  *
@@ -14,27 +15,32 @@ use Pim\Bundle\BaseConnectorBundle\Reader\Doctrine\Reader;
 class CategoryReader extends Reader
 {
     /**
-     * @var EntityRepository
+     * @var CategoryRepository
      */
     protected $categoryRepository;
 
     /**
-     * @var string
+     * @var UserContext
      */
+    protected $userContext;
+
+    /** @var array */
     protected $excludedCategories;
 
     /**
-     * @param EntityRepository $categoryRepository
+     * @param CategoryRepository $categoryRepository
+     * @param UserContext $userContext
      */
-    public function __construct(EntityRepository $categoryRepository)
+    public function __construct(CategoryRepository $categoryRepository, UserContext $userContext)
     {
         $this->categoryRepository = $categoryRepository;
+        $this->userContext = $userContext;
     }
 
     /**
-     * get excludedCategories
+     * Get Excluded categories
      *
-     * @return string excludedCategories
+     * @return array
      */
     public function getExcludedCategories()
     {
@@ -42,11 +48,11 @@ class CategoryReader extends Reader
     }
 
     /**
-     * Set excludedCategories
+     * Set Excluded categories
      *
-     * @param string $excludedCategories excludedCategories
+     * @param array $excludedCategories
      *
-     * @return AbstractProcessor
+     * @return CategoryReader
      */
     public function setExcludedCategories($excludedCategories)
     {
@@ -62,85 +68,78 @@ class CategoryReader extends Reader
     {
         if (!$this->query) {
             $qb = $this->categoryRepository->createQueryBuilder('c');
-            if($this->getExcludedCategories() != ''){
-                $categories = explode(',', $this->getExcludedCategories());
-                $i = 0;
-                foreach($categories as $cat){
-                    if($i == 0){
-                        $qb->where(
-                            $qb->expr()->orX(
-                                $qb->expr()->neq('c.code', ':code'.$i)
-                            )
-                        );
-                        $qb->setParameter('code'.$i, $cat);
-                    }else{
-                        $qb->andWhere(
-                            $qb->expr()->orX(
-                                $qb->expr()->neq('c.code', ':code'.$i)
-                            )
-                        );
-                        $qb->setParameter('code'.$i, $cat);
-                    }
-                    $i++;
-                    $children = $this->getCategoryChildren($cat);
-                    if($children != NULL){
-                        foreach($children as $child){
-                            $qb->andWhere(
-                                $qb->expr()->orX(
-                                    $qb->expr()->neq('c.code', ':code'.$i)
-                                )
-                            );
-                            $qb->setParameter('code'.$i, $child["code"]);
-                            $i++;
-                        }
-                    }
+            if ($this->getExcludedCategories()) {
+                $categoryIds = [];
 
+                foreach ($this->getExcludedCategories() as $categoryId) {
+                    $categoryIds[] = $categoryId;
+
+                    if ($children = $this->getCategoryChildren($categoryId)) {
+                        $categoryIds = array_merge($categoryIds, $children);
+                    }
                 }
+
+                $qb->where(
+                    $qb->expr()->orX(
+                        $qb->expr()->notIn('c.id', $categoryIds)
+                    )
+                );
             }
-            $qb
-                ->orderBy('c.root')
+            $qb->orderBy('c.root')
                 ->addOrderBy('c.left');
             $this->query = $qb->getQuery();
-
-
         }
 
         return $this->query;
     }
 
     /**
-     * Get all children of a category by its code
+     * Get all children of a category by its id
+     *
+     * @param $categoryId
+     * @return array
      */
-    protected function getCategoryChildren($categoryCode)
+    protected function getCategoryChildren($categoryId)
     {
-        $categoryId = $this->getCategoryId($categoryCode);
-        if($categoryId == NULL)
-            return null;
+        $children = [];
+
         $qb = $this->categoryRepository->createQueryBuilder('c');
-        $qb ->select('c.code')
+        $qb->select('c.id')
             ->where(
                 $qb->expr()->orX(
                     $qb->expr()->eq('c.parent', ':parent')
                 )
             )
-            ->setParameter('parent', $categoryId['id']);
-        return $qb->getQuery()->getResult();
+            ->setParameter('parent', $categoryId);
+
+        $results = $qb->getQuery()->getResult();
+
+        foreach ($results as $result) {
+            $children[] = $result['id'];
+
+            if ($subChildren = $this->getCategoryChildren($result['id'])) {
+                $children = array_merge($children, $subChildren);
+            }
+        }
+
+        return $children;
     }
 
-    /**
-     * Get category ID by its code
-     */
-    protected function getCategoryId($categoryCode)
+    protected function getRootCategoryChoices()
     {
+        $options = [];
+
         $qb = $this->categoryRepository->createQueryBuilder('c');
-        $qb ->select('c.id')
-            ->where(
-                $qb->expr()->orX(
-                    $qb->expr()->eq('c.code', ':code')
-                )
-            )
-            ->setParameter('code', $categoryCode);
-        return $qb->getQuery()->getOneOrNullResult();
+        $qb->select()->where($qb->expr()->eq('c.id', 'c.root'));
+
+        /** @var \Pim\Bundle\CatalogBundle\Entity\Category[] $categories */
+        $categories = $qb->getQuery()->getResult();
+
+        foreach ($categories as $category) {
+            $options[$category->getId()] = $category->setLocale($this->userContext->getCurrentLocaleCode())->getLabel();
+        }
+
+        return $options;
     }
 
     /**
@@ -148,14 +147,18 @@ class CategoryReader extends Reader
      */
     public function getConfigurationFields()
     {
-        return array(
-            'excludedCategories' => array(
-                'options' => array(
+        return [
+            'excludedCategories' => [
+                'type' => 'choice',
+                'options' => [
+                    'choices' => $this->getRootCategoryChoices(),
                     'required' => false,
-                    'label'    => 'dnd_magento_connector.export.excludedCategories.label',
-                    'help'     => 'dnd_magento_connector.export.excludedCategories.help'
-                )
-            )
-        );
+                    'multiple' => true,
+                    'select2' => true,
+                    'label' => 'dnd_magento_connector.export.excludedCategories.label',
+                    'help' => 'dnd_magento_connector.export.excludedCategories.help'
+                ]
+            ],
+        ];
     }
 }

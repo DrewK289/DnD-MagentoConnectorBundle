@@ -5,7 +5,6 @@ namespace DnD\Bundle\MagentoConnectorBundle\Reader\Doctrine;
 use Pim\Bundle\CatalogBundle\Version;
 use Akeneo\Bundle\BatchBundle\Entity\StepExecution;
 use Akeneo\Bundle\BatchBundle\Item\AbstractConfigurableStepElement;
-use Doctrine\ORM\AbstractQuery;
 use Doctrine\ORM\EntityManager;
 use Pim\Bundle\BaseConnectorBundle\Reader\ProductReaderInterface;
 use Symfony\Component\Validator\Constraints as Assert;
@@ -40,11 +39,6 @@ class ORMProductReader extends AbstractConfigurableStepElement implements Produc
      * @var ChannelManager
      */
     protected $channelManager;
-
-    /**
-     * @var AbstractQuery
-     */
-    protected $query;
 
     /**
      * @var integer
@@ -97,11 +91,6 @@ class ORMProductReader extends AbstractConfigurableStepElement implements Produc
     protected $exportFrom = "1970-01-01 01:00:00";
 
     /**
-     * @var string
-     */
-    protected $batchExportID = 1;
-
-    /**
      * @var boolean
      */
     protected $isEnabled = true;
@@ -131,30 +120,6 @@ class ORMProductReader extends AbstractConfigurableStepElement implements Produc
     public function setExportFrom($exportFrom)
     {
         $this->exportFrom = $exportFrom;
-
-        return $this;
-    }
-
-    /**
-     * get batchExportID
-     *
-     * @return string batchExportID
-     */
-    public function getBatchExportID()
-    {
-        return $this->batchExportID;
-    }
-
-    /**
-     * Set $batchExportID
-     *
-     * @param string batchExportID $batchExportID
-     *
-     * @return AbstractProcessor
-     */
-    public function setBatchExportID($batchExportID)
-    {
-        $this->batchExportID = $batchExportID;
 
         return $this;
     }
@@ -233,36 +198,6 @@ class ORMProductReader extends AbstractConfigurableStepElement implements Produc
     }
 
     /**
-     * Set query used by the reader
-     *
-     * @param AbstractQuery $query
-     *
-     * @throws \InvalidArgumentException
-     */
-    public function setQuery(AbstractQuery $query)
-    {
-        if (!is_a($query, 'Doctrine\ORM\AbstractQuery', true)) {
-            throw new \InvalidArgumentException(
-                sprintf(
-                    '$query must be a Doctrine\ORM\AbstractQuery instance, got "%s"',
-                    is_object($query) ? get_class($query) : $query
-                )
-            );
-        }
-        $this->query = $query;
-    }
-
-    /**
-     * Get query to execute
-     *
-     * @return AbstractQuery
-     */
-    public function getQuery()
-    {
-        return $this->query;
-    }
-
-    /**
      * {@inheritdoc}
      */
     public function read()
@@ -309,13 +244,6 @@ class ORMProductReader extends AbstractConfigurableStepElement implements Produc
                     'label'   => 'dnd_magento_connector.export.exportFrom.label',
                 )
             ),
-            'batchExportID' => array(
-                'required' => false,
-                'options' => array(
-                    'help'    => 'dnd_magento_connector.export.batchExportID.help',
-                    'label'   => 'dnd_magento_connector.export.batchExportID.label',
-                )
-            ),
             'isEnabled' => array(
                 'type'    => 'switch',
                 'required' => false,
@@ -340,7 +268,6 @@ class ORMProductReader extends AbstractConfigurableStepElement implements Produc
      */
     public function initialize()
     {
-        $this->query = null;
         $this->entityManager->clear();
         $this->ids = null;
         $this->offset = 0;
@@ -398,28 +325,26 @@ class ORMProductReader extends AbstractConfigurableStepElement implements Produc
             $this->completenessManager->generateMissingForChannel($this->channel);
         }
 
-        $this->query = $this->DnDBuildByChannelAndCompleteness($this->channel, $this->getIsComplete());
+        $qb = $this->DnDBuildByChannelAndCompleteness($this->channel, $this->getIsComplete());
 
-        $rootAlias = current($this->query->getRootAliases());
+        $rootAlias = current($qb->getRootAliases());
         $rootIdExpr = sprintf('%s.id', $rootAlias);
 
-        $from = current($this->query->getDQLPart('from'));
+        $from = current($qb->getDQLPart('from'));
 
-        $this->query
-            ->select($rootIdExpr)
+        $qb->select($rootIdExpr)
             ->resetDQLPart('from')
             ->from($from->getFrom(), $from->getAlias(), $rootIdExpr)
             ->andWhere(
-                $this->query->expr()->orX(
-                    $this->query->expr()->gte($from->getAlias() . '.updated', ':updated')
+                $qb->expr()->orX(
+                    $qb->expr()->gte($from->getAlias() . '.updated', ':updated')
                 )
             )
             ->setParameter('updated', $this->getDateFilter())
             ->setParameter('enabled', $this->getIsEnabled())
             ->groupBy($rootIdExpr);
-        $results = $this->query->getQuery()->getArrayResult();
 
-        return array_keys($results);
+        return array_keys($qb->getQuery()->getResult());
     }
 
     /**
@@ -470,17 +395,30 @@ class ORMProductReader extends AbstractConfigurableStepElement implements Produc
     /**
      * Get the date use to filter the product collection
      *
-     * @return string
+     * @return \DateTime
+     * @throws \Doctrine\ORM\NonUniqueResultException
      */
     protected function getDateFilter()
     {
-        $q = $this->entityManager->createQuery("select MAX(je.endTime) from Akeneo\Bundle\BatchBundle\Entity\JobExecution je where je.jobInstance = " . $this->getBatchExportID());
+        $qb = $this->entityManager->createQueryBuilder();
+        $qb->select('e')
+            ->from('Akeneo\Bundle\BatchBundle\Entity\JobExecution', 'e')
+            ->join('e.jobInstance', 'j')
+            ->where(
+                $qb->expr()->eq('j.id', ':id'),
+                $qb->expr()->eq('e.exitCode', ':exitCode')
+            )
+            ->addOrderBy('j.id', 'desc')
+            ->setMaxResults(1)
+            ->setParameter('id', $this->stepExecution->getJobExecution()->getJobInstance()->getId())
+            ->setParameter('exitCode', 'COMPLETED');
 
-        $lastJobDate = $q->getOneOrNullResult();
+        /** @var \Akeneo\Bundle\BatchBundle\Entity\JobExecution $lastJobExecution */
+        $lastJobExecution = $qb->getQuery()->getOneOrNullResult();
 
-        $date = (isset($lastJobDate[1]) && $lastJobDate[1] != NULL) ? $lastJobDate[1] : '1970-01-01 01:00:00';
+        $date = $lastJobExecution ? $lastJobExecution->getStartTime() : new \DateTime('1970-01-01 01:00:00');
 
-        return ($this->getExportFrom() != '') ? $this->getExportFrom() : $date;
+        return $this->getExportFrom() ? new \DateTime($this->getExportFrom()) : $date;
     }
 
     /**
