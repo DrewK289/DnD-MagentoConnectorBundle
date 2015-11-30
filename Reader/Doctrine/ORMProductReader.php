@@ -408,7 +408,7 @@ class ORMProductReader extends AbstractConfigurableStepElement implements Produc
                 $qb->expr()->eq('j.id', ':id'),
                 $qb->expr()->eq('e.exitCode', ':exitCode')
             )
-            ->addOrderBy('j.id', 'desc')
+            ->addOrderBy('e.id', 'desc')
             ->setMaxResults(1)
             ->setParameter('id', $this->stepExecution->getJobExecution()->getJobInstance()->getId())
             ->setParameter('exitCode', 'COMPLETED');
